@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:7.0.4-alpine
+    ports:
+      - 6379:6379
+
+  wsgi_app:
+    build: .
+    container_name: qr-redirector-wsgi
+    restart: on-failure:3
+    ports: 
+      - 8000:8000
+    volumes:
+      - .:/app
+    command: >
+      sh -c "python3 manage.py runscript scripts.setup &&
+             gunicorn main.wsgi:application -w 2 -b :8000 --reload"
+    depends_on:
+      - redis
+
+  asgi_app:
+    build: .
+    container_name: qr-redirector-asgi
+    restart: on-failure:3
+    ports: 
+      - 8001:8001
+    volumes:
+      - .:/app
+    command: >
+      sh -c "daphne -b 0.0.0.0 -p 8001 main.asgi:application"
+    depends_on:
+      - redis
+      - wsgi_app
